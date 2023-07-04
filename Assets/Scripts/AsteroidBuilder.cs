@@ -9,7 +9,6 @@ public class AsteroidBuilder : MonoBehaviour
     Texture2D asteroidTexture;
     SpriteRenderer asteroidSprite;
     List<Vector2Int> changedPixels;
-    Quaternion initialRotation;
 
     Quad rootNode;
     Quad nodeToChange;
@@ -27,7 +26,6 @@ public class AsteroidBuilder : MonoBehaviour
         asteroidTexture.Apply();
         MakeSprite(asteroidSprite, asteroidTexture);
         changedPixels = new List<Vector2Int>();
-        initialRotation = transform.rotation;
 
         // Set the variables to manage pixel to world
         // coordinate transforms
@@ -49,9 +47,12 @@ public class AsteroidBuilder : MonoBehaviour
         BuildCollider(rootNode);
     }
 
-    // Build the quadtree, stopping along the way to set their
-    // status in terms of pixels contained in the quad as empty, full, or mixed
+
+    // QUADTREE
+
     void BuildQuad(Quad node) {
+    // Build the quadtree, stopping along the way to set each node's status
+    // in terms of pixels contained in the quad as empty, full, or mixed
         if (checkNodeState(node.bottomLeftPix, node.topRightPix) == "empty")
         {
             node.nodeState = "empty";
@@ -73,61 +74,8 @@ public class AsteroidBuilder : MonoBehaviour
 
     }
 
-    // Traverse the quad starting from a given node,
-    // and remove any colliders that are associated with leaf nodes
-    private void RemoveColliders(Quad node) {
-        if (node.hasCollider && node.isLeaf) {
-            Destroy(node.nodeCollider);
-            node.hasCollider = false;
-        } else if (!node.isLeaf) {
-            RemoveColliders(node.bottomLeft);
-            RemoveColliders(node.bottomRight);
-            RemoveColliders(node.topLeft);
-            RemoveColliders(node.topRight);
-        }
-    }
-
-    // Traverse the quad from a given node and build colliders for
-    // any leaf nodes that are visible
-    private void BuildCollider(Quad node) {
-        if (node.nodeState == "empty") {
-            return;
-        } else if (node.nodeState == "full") {
-            AddCollider(node);
-        } else if (node.nodeState == "mixed") {
-            BuildCollider(node.bottomLeft);
-            BuildCollider(node.bottomRight);
-            BuildCollider(node.topLeft);
-            BuildCollider(node.topRight);
-        }
-    }
-
-    private void AddCollider(Quad node) {
-        
-        // Create the collider
-        BoxCollider2D nodeCollider = new BoxCollider2D();
-        nodeCollider = gameObject.AddComponent<BoxCollider2D>();
-
-        // Determine and set size of collider
-        int nodeWidthPixels = spriteWidthPixels / node.nodeDepth;
-
-        float nodeWidthLocal = nodeWidthPixels * (spriteWidthUnits/spriteWidthPixels);
-        nodeCollider.size = new Vector2(nodeWidthLocal,nodeWidthLocal);
-        
-        // Determine and set midpoint of the collider
-        Vector2 bottomLeftWorld = PixelToLocal(new Vector2Int(node.bottomLeftPix.x, node.bottomLeftPix.y));
-        Vector2 topRightWorld = PixelToLocal(new Vector2Int(node.topRightPix.x, node.topRightPix.y));
-        Vector2 midPoint = (topRightWorld + bottomLeftWorld) / 2;
-        nodeCollider.offset = midPoint;
-
-        nodeCollider.usedByComposite = true;
-
-        // Assign the collider to the node
-        node.hasCollider = true;
-        node.nodeCollider = nodeCollider;
-    }
-
     private void SplitNode(Quad node)
+    // Split a node into four child nodes, and set the node depth of each
     {
         // Figure out the width of the parent node
         int nodeWidth = (node.topRightPix.x - node.bottomLeftPix.x);
@@ -147,7 +95,9 @@ public class AsteroidBuilder : MonoBehaviour
     }
 
     string checkNodeState(Vector2Int bottomLeft, Vector2Int topRight)
-    {
+    // Determine whether a node is full (all pixels have color value), mixed (some do
+    // and some don't), or empty (all are transparent)
+    { 
         // Check the status of the first pixel, to then determine
         // whether the node is full, empty, or mixed
         bool firstPixIsEmpty;
@@ -185,9 +135,68 @@ public class AsteroidBuilder : MonoBehaviour
         }
     }
 
-    void DigHole(Vector3 mousePos, int radius)
-    {        
 
+    // COLLIDERS
+
+    private void BuildCollider(Quad node) {
+    // Traverse the quad from a given node and build colliders for
+    // any leaf nodes that are visible
+        if (node.nodeState == "empty") {
+            return;
+        } else if (node.nodeState == "full") {
+            AddCollider(node);
+        } else if (node.nodeState == "mixed") {
+            BuildCollider(node.bottomLeft);
+            BuildCollider(node.bottomRight);
+            BuildCollider(node.topLeft);
+            BuildCollider(node.topRight);
+        }
+    }
+
+    private void AddCollider(Quad node) {
+    // Add a collider that matches the
+    // location and size of the node
+
+        // Create the collider
+        BoxCollider2D nodeCollider = new BoxCollider2D();
+        nodeCollider = gameObject.AddComponent<BoxCollider2D>();
+
+        // Determine and set size of collider
+        int nodeWidthPixels = spriteWidthPixels / node.nodeDepth;
+
+        float nodeWidthLocal = nodeWidthPixels * (spriteWidthUnits/spriteWidthPixels);
+        nodeCollider.size = new Vector2(nodeWidthLocal,nodeWidthLocal);
+        
+        // Determine and set midpoint of the collider
+        Vector2 bottomLeftWorld = PixelToLocal(new Vector2Int(node.bottomLeftPix.x, node.bottomLeftPix.y));
+        Vector2 topRightWorld = PixelToLocal(new Vector2Int(node.topRightPix.x, node.topRightPix.y));
+        Vector2 midPoint = (topRightWorld + bottomLeftWorld) / 2;
+        nodeCollider.offset = midPoint;
+
+        // Assign the collider to the node
+        node.hasCollider = true;
+        node.nodeCollider = nodeCollider;
+    }
+
+    private void RemoveColliders(Quad node) {
+    // Traverse the quad starting from a given node,
+    // and remove any colliders that are associated with leaf nodes
+        if (node.hasCollider && node.isLeaf) {
+            Destroy(node.nodeCollider);
+            node.hasCollider = false;
+        } else if (!node.isLeaf) {
+            RemoveColliders(node.bottomLeft);
+            RemoveColliders(node.bottomRight);
+            RemoveColliders(node.topLeft);
+            RemoveColliders(node.topRight);
+        }
+    }
+
+
+    // TERRAIN DESTRUCTION
+
+    void Mine(Vector3 mousePos, int radius)
+    {        
         // Loop around the circle, starting from the center
         // and checking for pixels that are non-transparent.
         // If we find any, change them to transparent, and save
@@ -269,14 +278,14 @@ public class AsteroidBuilder : MonoBehaviour
 
     // UTILITY METHODS
 
-    // Update the sprite if changes have been made to it
     void MakeSprite(SpriteRenderer spriteRenderer, Texture2D texture)
+    // Update the sprite if changes have been made to it
     {
         spriteRenderer.sprite = Sprite.Create(texture, new Rect(0,0,texture.width, texture.height), Vector2.one * 0.5f);
     }
 
-    // Convert a given Vector2 into a Vector2Int denoting a set of pixel coordinates
     Vector2Int LocalToPixel(Vector2 localPos)
+    // Convert a given Vector2 into a Vector2Int denoting a set of pixel coordinates
     {
         Vector2Int pixelPosition = new Vector2Int();
         pixelPosition.x = Mathf.RoundToInt(0.5f * spriteWidthPixels + localPos.x * (spriteWidthPixels/spriteWidthUnits));
@@ -284,8 +293,8 @@ public class AsteroidBuilder : MonoBehaviour
         return pixelPosition;
     }
 
-    // Convert a given Vector2Int pixel coordinate into a Vector2 denoting local coordinates
     Vector2 PixelToLocal(Vector2Int pixPos)
+    // Convert a given Vector2Int pixel coordinate into a Vector2 denoting local coordinates
     {
         Vector2 localPos = new Vector2(pixPos.x - 0.5f * spriteWidthPixels, pixPos.y - 0.5f * spriteHeightPixels);
         return localPos * new Vector2(spriteWidthUnits/spriteWidthPixels, spriteHeightUnits/spriteHeightPixels);
@@ -294,10 +303,9 @@ public class AsteroidBuilder : MonoBehaviour
 
     // UPDATE
 
-
     void Update()
     {
-         if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(0))
         {
             // Return the location of the mouse click in pixel coordinates
             Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -309,7 +317,7 @@ public class AsteroidBuilder : MonoBehaviour
             // Dig a hole centered around the position where the mouse is clicked
             Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             mousePosition = transform.InverseTransformPoint(mousePosition);
-            DigHole(mousePosition, 10);
+            Mine(mousePosition, 10);
         }  
     }
 

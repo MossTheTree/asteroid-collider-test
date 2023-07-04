@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Ground : MonoBehaviour
+public class PolygonBuilder : MonoBehaviour
 {
 
     [SerializeField] Texture2D srcTexture;
@@ -12,10 +12,6 @@ public class Ground : MonoBehaviour
 
     float worldWidth, worldHeight;
     int pixelWidth, pixelHeight;
-
-    // What are these?
-    bool testCheck = true;
-    int boxNumber;
     
     List<Vector2Int> edgePixels;
     List<List<Vector2>> colliderPointsList;
@@ -39,7 +35,6 @@ public class Ground : MonoBehaviour
         // Build the collider
         asteroidCollider = gameObject.AddComponent<PolygonCollider2D>();
         BuildCollider();
-        // BuildBoxCollider();
 
     }
 
@@ -179,24 +174,6 @@ public class Ground : MonoBehaviour
         return false;
 
     } 
-
-    void BuildBoxCollider()
-    {
-        edgePixels = new List<Vector2Int>();
-
-        for (int i = 0; i < asteroidTexture.width; i++)
-        {
-            for (int j = 0; j < asteroidTexture.height; j++)
-            {
-                if (IsPixelAtEdge(new Vector2Int(i,j),asteroidTexture))
-                {
-                    BoxCollider2D pixelCollider = gameObject.AddComponent<BoxCollider2D>();
-                    pixelCollider.size = new Vector2(0.01f,0.01f);
-                    pixelCollider.offset = new Vector2(PixelToWorld(new Vector2Int(i,j)).x, PixelToWorld(new Vector2Int(i,j)).y);
-                }
-            }
-        }
-    }
 
     void BuildCollider()
     {
