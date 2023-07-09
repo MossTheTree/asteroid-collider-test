@@ -17,6 +17,9 @@ public class AsteroidBuilder : MonoBehaviour
     float spriteWidthUnits, spriteHeightUnits;
     int spriteWidthPixels, spriteHeightPixels;
 
+    private CustomCollider2D asteroidCollider;
+    private PhysicsShapeGroup2D asteroidColliderGroup;
+
     void Start()
     {
         
@@ -40,11 +43,15 @@ public class AsteroidBuilder : MonoBehaviour
         nodeToChange = rootNode;
         nodesToChange = new List<Quad>();
 
+        asteroidCollider = GetComponent<CustomCollider2D>();
+        asteroidColliderGroup = new PhysicsShapeGroup2D(1000, 5000);
+
         // Built the quadtree
         BuildQuad(rootNode);
 
         // Build the collider
         BuildCollider(rootNode);
+        asteroidCollider.SetCustomShapes(asteroidColliderGroup);
     }
 
 
@@ -158,31 +165,33 @@ public class AsteroidBuilder : MonoBehaviour
     // location and size of the node
 
         // Create the collider
-        BoxCollider2D nodeCollider = new BoxCollider2D();
-        nodeCollider = gameObject.AddComponent<BoxCollider2D>();
+        // BoxCollider2D nodeCollider = new BoxCollider2D();
+        // nodeCollider = gameObject.AddComponent<BoxCollider2D>();
 
         // Determine and set size of collider
         int nodeWidthPixels = spriteWidthPixels / node.nodeDepth;
-
         float nodeWidthLocal = nodeWidthPixels * (spriteWidthUnits/spriteWidthPixels);
-        nodeCollider.size = new Vector2(nodeWidthLocal,nodeWidthLocal);
+        // nodeCollider.size = new Vector2(nodeWidthLocal,nodeWidthLocal);
+        Vector2 nodeColliderSize = new Vector2(nodeWidthLocal,nodeWidthLocal);
         
         // Determine and set midpoint of the collider
         Vector2 bottomLeftWorld = PixelToLocal(new Vector2Int(node.bottomLeftPix.x, node.bottomLeftPix.y));
         Vector2 topRightWorld = PixelToLocal(new Vector2Int(node.topRightPix.x, node.topRightPix.y));
         Vector2 midPoint = (topRightWorld + bottomLeftWorld) / 2;
-        nodeCollider.offset = midPoint;
+        // nodeCollider.offset = midPoint;
+        Vector2 nodeColliderOffset = midPoint;
 
         // Assign the collider to the node
         node.hasCollider = true;
-        node.nodeCollider = nodeCollider;
+        // node.nodeCollider = nodeCollider;
+        node.shapeIndex = asteroidColliderGroup.AddBox(nodeColliderOffset, nodeColliderSize);
     }
 
     private void RemoveColliders(Quad node) {
     // Traverse the quad starting from a given node,
     // and remove any colliders that are associated with leaf nodes
         if (node.hasCollider && node.isLeaf) {
-            Destroy(node.nodeCollider);
+            // Destroy(node.nodeCollider);
             node.hasCollider = false;
         } else if (!node.isLeaf) {
             RemoveColliders(node.bottomLeft);
@@ -243,18 +252,38 @@ public class AsteroidBuilder : MonoBehaviour
             foreach (Vector2Int pixel in changedPixels) {
                 DoesNodeContain(pixel, rootNode);
             }
-            foreach (Quad node in nodesToChange) {
-                Destroy(node.nodeCollider);
+            foreach (Quad node in nodesToChange) {              
+                asteroidColliderGroup.DeleteShape(node.shapeIndex);
                 node.hasCollider = false;
+                AdjustNodeShapeIndexes(ref rootNode, node.shapeIndex);
                 BuildQuad(node);
                 BuildCollider(node);
+                asteroidCollider.SetCustomShapes(asteroidColliderGroup);
             }
+
             asteroidTexture.Apply();
             MakeSprite(asteroidSprite, asteroidTexture);
             nodesToChange.Clear();
             changedPixels.Clear();
         } 
     }
+
+    void AdjustNodeShapeIndexes(ref Quad node, int aboveShapeIndex)
+    {
+        if (node.isLeaf)
+        {
+            if (node.hasCollider && node.shapeIndex > aboveShapeIndex)
+            {
+                node.shapeIndex--;
+            }
+            return;
+        }
+        AdjustNodeShapeIndexes(ref node.bottomLeft, aboveShapeIndex);
+        AdjustNodeShapeIndexes(ref node.bottomRight, aboveShapeIndex);
+        AdjustNodeShapeIndexes(ref node.topLeft, aboveShapeIndex);
+        AdjustNodeShapeIndexes(ref node.topRight, aboveShapeIndex);
+    }
+
 
     // Find what nodes contain a given pixel, then add them to nodesToChange
     void DoesNodeContain(Vector2Int thisPixel, Quad node) {
@@ -281,7 +310,7 @@ public class AsteroidBuilder : MonoBehaviour
     void MakeSprite(SpriteRenderer spriteRenderer, Texture2D texture)
     // Update the sprite if changes have been made to it
     {
-        spriteRenderer.sprite = Sprite.Create(texture, new Rect(0,0,texture.width, texture.height), Vector2.one * 0.5f);
+        spriteRenderer.sprite = Sprite.Create(texture, new Rect(0,0,texture.width, texture.height), Vector2.one * 0.5f,asteroidSprite.sprite.pixelsPerUnit);
     }
 
     Vector2Int LocalToPixel(Vector2 localPos)

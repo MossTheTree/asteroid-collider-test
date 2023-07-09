@@ -8,8 +8,7 @@ public class Digger : MonoBehaviour
     void Update()
     {
         // Set the location of the digger to the mouse position
-        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        mousePos.z = 0;
+        Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         GetComponent<Rigidbody2D>().position = mousePos;
     }
 }
