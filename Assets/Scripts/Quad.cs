@@ -14,7 +14,6 @@ public class Quad
     public bool hasCollider;
     public string nodeState;
     public int nodeDepth;
-    // public BoxCollider2D nodeCollider;
     public int shapeIndex;
 
     // Node position
@@ -36,7 +35,6 @@ public class Quad
         topRightPix = last;
         isLeaf = false;
         hasCollider = false;
-        // nodeCollider = new BoxCollider2D();
     }
 
 }
